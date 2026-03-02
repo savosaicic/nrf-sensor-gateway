@@ -43,7 +43,8 @@ int db_init(const char *path)
     "  id          INTEGER PRIMARY KEY AUTOINCREMENT,"
     "  channel_id  INTEGER NOT NULL REFERENCES channels(id),"
     "  timestamp   INTEGER NOT NULL,"
-    "  value_float REAL"
+    "  value_float REAL,"
+    "  value_int   INTEGER"
     ");";
 
   const char *sql_index =
@@ -167,8 +168,8 @@ int db_insert_reading(const sensor_channel_t *ch, int64_t timestamp)
   }
 
   rc = sqlite3_prepare_v2(g_db,
-    "INSERT INTO readings (channel_id, timestamp, value_float) "
-    "VALUES (?, ?, ?)",
+    "INSERT INTO readings (channel_id, timestamp, value_float, value_int) "
+    "VALUES (?, ?, ?, ?)",
     -1, &stmt, NULL);
   if (rc != SQLITE_OK) {
     fprintf(stderr, "sqlite3_prepare_v2 failed: %s\n", sqlite3_errmsg(g_db));
@@ -193,6 +194,13 @@ int db_insert_reading(const sensor_channel_t *ch, int64_t timestamp)
     rc = sqlite3_bind_double(stmt, 3, (double)ch->value.f);
     if (rc != SQLITE_OK) {
       fprintf(stderr, "sqlite3_bind_double failed: %s\n", sqlite3_errmsg(g_db));
+      goto error;
+    }
+    break;
+  case SENSOR_TYPE_INT:
+    rc = sqlite3_bind_int(stmt, 4, ch->value.i);
+    if (rc != SQLITE_OK) {
+      fprintf(stderr, "sqlite3_bind_int failed: %s\n", sqlite3_errmsg(g_db));
       goto error;
     }
     break;

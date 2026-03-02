@@ -64,6 +64,9 @@ static int parse_reading(const cJSON *item, parsed_reading_t *out)
   case SENSOR_TYPE_FLOAT:
     out->value.f = (float)v->valuedouble;
     break;
+  case SENSOR_TYPE_INT:
+    out->value.i = v->valueint;
+    break;
   default:
     break;
   }

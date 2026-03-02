@@ -87,3 +87,21 @@ int sensor_channel_update_float(sensor_channel_t *ch, float value)
   ch->has_value = true;
   return 0;
 }
+
+/**
+ * @brief Update the int value of a sensor channel
+ *
+ * @param ch    Pointer to the sensor channel
+ * @param value Integer value to set
+ *
+ * @return 0 on success, -1 on failure
+ */
+int sensor_channel_update_int(sensor_channel_t *ch, int value)
+{
+  if (!ch || ch->type != SENSOR_TYPE_INT) {
+    return -1;
+  }
+  ch->value.i   = value;
+  ch->has_value = true;
+  return 0;
+}
