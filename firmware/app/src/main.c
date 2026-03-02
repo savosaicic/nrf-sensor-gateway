@@ -1,4 +1,5 @@
 #include <zephyr/logging/log.h>
+#include <stdio.h>
 
 #include "modem.h"
 #include "network_events.h"
@@ -30,9 +31,30 @@ static int snapshot_to_json(const sensor_snapshot_t *snapshot, char *buf,
     const sensor_reading_t *r   = &snapshot->readings[i];
     const char             *sep = (i + 1 < snapshot->count) ? "," : "";
 
+    /* Write the fixed prefix: name and type tag */
     ret = snprintf(buf + written, buf_len - written,
-                   "{\"n\":\"%s\",\"t\":%d,\"v\":%.2f}%s", r->name, r->type,
-                   (double)r->value.f, sep);
+                   "{\"n\":\"%s\",\"t\":%d,\"v\":", r->name, r->type);
+    if (ret < 0 || (size_t)ret >= buf_len - written) {
+      return -ENOMEM;
+    }
+    written += ret;
+
+    /* Write the value according to its type */
+    switch (r->type) {
+    case SENSOR_TYPE_FLOAT:
+      ret =
+        snprintf(buf + written, buf_len - written, "%.2f", (double)r->value.f);
+      break;
+    default:
+      return -EINVAL;
+    }
+    if (ret < 0 || (size_t)ret >= buf_len - written) {
+      return -ENOMEM;
+    }
+    written += ret;
+
+    /* Close the object and append separator */
+    ret = snprintf(buf + written, buf_len - written, "}%s", sep);
     if (ret < 0 || (size_t)ret >= buf_len - written) {
       return -ENOMEM;
     }
