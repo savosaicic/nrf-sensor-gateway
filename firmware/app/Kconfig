@@ -13,7 +13,7 @@ config COAP_SERVER_PORT
 
 config COAP_TX_RESOURCE
 	string "CoAP resource - this is the TX channel of the board"
-	default "sensors"
+	default "sensor/snapshot"
 
 endmenu
 
