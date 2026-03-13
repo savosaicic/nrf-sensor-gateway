@@ -29,8 +29,8 @@ adding a new one requires no changes to the core pipeline.
 ### 1. Initialise the workspace
 
 ```bash
-mkdir nrf9151-sensor-gateway-ws && cd nrf9151-sensor-gateway-ws
-west init -m https://github.com/savosaicic/nrf9151-sensor-gateway --mr main
+mkdir nrf-sensor-gateway-ws && cd nrf-sensor-gateway-ws
+west init -m https://github.com/savosaicic/nrf-sensor-gateway --mr main
 west update
 pip install -r zephyr/scripts/requirements.txt
 ```
