@@ -4,40 +4,30 @@ CPPFLAGS	:= -Iinclude
 CFLAGS		:= -Wall -Wextra -Werror
 LDFLAGS  	:= -lsqlite3 -lcoap-3 -lcjson
 SRCS      := main.c db.c sensor.c coap_server.c snapshot_parser.c
-OBJS 			:= $(SRCS:.c=.o)
-DEPS 			:= $(SRCS:.c=.d)
 OBJDIR 		:= obj
 DEPDIR 		:= dep
-SUFFIXES	+= .d
+OBJS      := $(addprefix $(OBJDIR)/, $(SRCS:.c=.o))
+DEPS			:= $(addprefix $(DEPDIR)/, $(SRCS:.c=.d))
 
 vpath %.c src
-vpath %.o $(OBJDIR)
-vpath %.d $(DEPDIR)
 
 all: $(NAME)
 
-$(NAME): $(DEPS) $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(addprefix $(OBJDIR)/, $(OBJS)) $(LDFLAGS)
+$(NAME): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
-%.o: %.c $(DEPS)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $(OBJDIR)/$@
-
-%.d: %.c
-	$(CC) $(CPPFLAGS) -MM -MF $(DEPDIR)/$@ $<
+$(OBJDIR)/%.o: %.c | $(OBJDIR) $(DEPDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -MF $(DEPDIR)/$*.d -c $< -o $@
 
 ifneq "$(MAKECMDGOALS)" "clean"
- -include $(addprefix $(DEPDIR)/, $(DEPS))
+ -include $(DEPS)
 endif
 
 debug: CFLAGS += -g -DDEBUG=1
 debug: $(NAME)
 
-$(OBJS): | $(OBJDIR)
-
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
-
-$(DEPS): | $(DEPDIR)
 
 $(DEPDIR):
 	mkdir -p $(DEPDIR)
