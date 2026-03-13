@@ -1,5 +1,6 @@
 #include <zephyr/logging/log.h>
 #include <stdio.h>
+#include <cJSON.h>
 
 #include "modem.h"
 #include "network_events.h"
@@ -15,64 +16,59 @@ K_EVENT_DEFINE(network_events);
 
 static const coap_backend_t *coap = &coap_backend_libcoap;
 
-/* Minimal json encoding — TODO: replace with zephyr json library */
 static int snapshot_to_json(const sensor_snapshot_t *snapshot, char *buf,
                             size_t buf_len)
 {
-  int written = 0;
-  int ret;
+  int ret = -ENOMEM;
 
-  ret = snprintf(buf + written, buf_len - written,
-                 "{\"ts\":%lld,\"readings\":[", snapshot->timestamp_ms);
-  if (ret < 0 || (size_t)ret >= buf_len - written) {
+  cJSON *root = cJSON_CreateObject();
+  if (!root) {
     return -ENOMEM;
   }
-  written += ret;
+
+  cJSON_AddNumberToObject(root, "ts", (double)snapshot->timestamp_ms);
+
+  cJSON *readings = cJSON_AddArrayToObject(root, "readings");
+  if (!readings) {
+    goto cleanup;
+  }
 
   for (size_t i = 0; i < snapshot->count; i++) {
-    const sensor_reading_t *r   = &snapshot->readings[i];
-    const char             *sep = (i + 1 < snapshot->count) ? "," : "";
+    const sensor_reading_t *r = &snapshot->readings[i];
 
-    /* Write the fixed prefix: name and type tag */
-    ret = snprintf(buf + written, buf_len - written,
-                   "{\"n\":\"%s\",\"t\":%d,\"v\":", r->name, r->type);
-    if (ret < 0 || (size_t)ret >= buf_len - written) {
-      return -ENOMEM;
+    cJSON *entry = cJSON_CreateObject();
+    if (!entry) {
+      goto cleanup;
     }
-    written += ret;
 
-    /* Write the value according to its type */
+    cJSON_AddStringToObject(entry, "n", r->name);
+    cJSON_AddNumberToObject(entry, "t", r->type);
+
     switch (r->type) {
     case SENSOR_TYPE_FLOAT:
-      ret =
-        snprintf(buf + written, buf_len - written, "%.2f", (double)r->value.f);
+      cJSON_AddNumberToObject(entry, "v", (double)r->value.f);
       break;
     case SENSOR_TYPE_INT:
-      ret = snprintf(buf + written, buf_len - written, "%d", r->value.i);
+      cJSON_AddNumberToObject(entry, "v", r->value.i);
       break;
     default:
-      return -EINVAL;
+      cJSON_Delete(entry);
+      ret = -EINVAL;
+      goto cleanup;
     }
-    if (ret < 0 || (size_t)ret >= buf_len - written) {
-      return -ENOMEM;
-    }
-    written += ret;
 
-    /* Close the object and append separator */
-    ret = snprintf(buf + written, buf_len - written, "}%s", sep);
-    if (ret < 0 || (size_t)ret >= buf_len - written) {
-      return -ENOMEM;
-    }
-    written += ret;
+    cJSON_AddItemToArray(readings, entry);
   }
 
-  ret = snprintf(buf + written, buf_len - written, "]}");
-  if (ret < 0 || (size_t)ret >= buf_len - written) {
-    return -ENOMEM;
+  if (!cJSON_PrintPreallocated(root, buf, (int)buf_len, false)) {
+    goto cleanup;
   }
-  written += ret;
 
-  return written;
+  ret = (int)strlen(buf);
+
+cleanup:
+  cJSON_Delete(root);
+  return ret;
 }
 
 int main(void)
