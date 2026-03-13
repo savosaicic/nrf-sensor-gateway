@@ -83,3 +83,108 @@ docker run --rm -p 5683:5683/udp -v $(pwd)/data:/data coap-sensor-server /data/s
 ```
 
 Incoming snapshots are printed to stdout and written to the database as they arrive.
+
+---
+
+## Database Schema
+
+The server uses SQLite with two tables.
+
+### `channels`
+
+Stores one row per named data channel, created on first insertion.
+
+| Column | Type    | Description                              |
+| ------ | ------- | ---------------------------------------- |
+| `id`   | INTEGER | Primary key (autoincrement)              |
+| `name` | TEXT    | Unique channel name (e.g. `temperature`) |
+| `type` | INTEGER | `sensor_type_t` enum value               |
+
+### `readings`
+
+Stores every individual reading.
+
+| Column        | Type    | Description                                 |
+|---------------|---------|---------------------------------------------|
+| `id`          | INTEGER | Primary key (autoincrement)                 |
+| `channel_id`  | INTEGER | Foreign key → `channels.id`                 |
+| `timestamp`   | INTEGER | Unix timestamp in ms                        |
+| `value_float` | REAL    | Set for `SENSOR_TYPE_FLOAT`, NULL otherwise |
+| `value_int`   | INTEGER | Set for `SENSOR_TYPE_INT`, NULL otherwise   |
+
+---
+
+## Adding a New Data Source
+
+A data source is anything that produces named readings (sensor, GNSS module,
+battery monitor, etc.) It implements the `data_source_t` interface:
+
+```c
+// firmware/app/include/data_source.h
+
+typedef struct {
+  const char *name;    // human-readable label, e.g. "lsm303agr"
+  int (*init)(void);   // called once at boot: register channels, init hardware
+  int (*read)(void);   // called every sampling cycle: read hardware, update channels
+} data_source_t;
+```
+
+### Steps
+
+**1. Create `firmware/app/src/your_source.c`**
+
+```c
+#include <errno.h>
+#include <zephyr/logging/log.h>
+#include "data_source.h"
+#include "sensor.h"
+
+LOG_MODULE_REGISTER(your_source, LOG_LEVEL_DBG);
+
+static sensor_channel_t *ch_value;
+
+static int your_source_init(void)
+{
+    // Configure hardware here (device_is_ready, i2c_configure, …)
+
+    ch_value = sensor_channel_register("your_channel", SENSOR_TYPE_FLOAT);
+    if (!ch_value) {
+        LOG_ERR("Failed to register channel");
+        return -ENOMEM;
+    }
+    return 0;
+}
+
+static int your_source_read(void)
+{
+    if (!ch_value) return -EINVAL;
+
+    float val = /* read from hardware */;
+
+    return sensor_channel_update_float(ch_value, val);
+}
+
+const data_source_t my_sensor_source = {
+    .name = "your_source",
+    .init = my_sensor_init,
+    .read = my_sensor_read,
+};
+```
+
+A source can register **multiple channels** in `init()`, one struct per
+measured quantity (e.g. a BME280 would register `temperature`, `humidity`,
+and `pressure`).
+
+**2. Register it in `firmware/app/src/sensor_config.c`**
+
+```c
+extern data_source_t my_sensor_source; // ← add
+
+data_source_t *g_data_sources[] = {
+    &temperature_sensor_source,
+    &my_sensor_source,                 // ← add
+};
+const size_t g_data_source_count = ARRAY_SIZE(g_data_sources);
+```
+
+`sources_init_all()` and `sources_read_all()` will pick it up automatically on the next build.
