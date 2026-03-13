@@ -69,6 +69,9 @@ static void handle_snapshot_post(coap_resource_t     *resource,
     case SENSOR_TYPE_INT:
       sensor_channel_update_int(ch, r->value.i);
       break;
+    case SENSOR_TYPE_STRING:
+      sensor_channel_update_string(ch, r->value.s);
+      break;
     case SENSOR_TYPE_LAST:
       break;
     }

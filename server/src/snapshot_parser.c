@@ -47,7 +47,7 @@ static int parse_reading(const cJSON *item, parsed_reading_t *out)
   }
 
   const cJSON *v = cJSON_GetObjectItemCaseSensitive(item, "v");
-  if (!cJSON_IsNumber(v)) {
+  if (!cJSON_IsNumber(v) && !cJSON_IsString(v)) {
     log_error("reading '%s' missing 'v' field, skipping", n->valuestring);
     return -1;
   }
@@ -67,6 +67,10 @@ static int parse_reading(const cJSON *item, parsed_reading_t *out)
     break;
   case SENSOR_TYPE_INT:
     out->value.i = v->valueint;
+    break;
+  case SENSOR_TYPE_STRING:
+    strncpy(out->value.s, v->valuestring, SENSOR_STRING_MAX_LEN - 1);
+    out->value.s[SENSOR_STRING_MAX_LEN - 1] = '\0';
     break;
   default:
     break;

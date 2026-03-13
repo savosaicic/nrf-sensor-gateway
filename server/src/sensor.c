@@ -105,3 +105,22 @@ int sensor_channel_update_int(sensor_channel_t *ch, int value)
   ch->has_value = true;
   return 0;
 }
+
+/**
+ * @brief Update the string value of a sensor channel
+ *
+ * @param ch    Pointer to the sensor channel
+ * @param value A pointer to a string to set
+ *
+ * @return 0 on success, -1 on failure
+ */
+int sensor_channel_update_string(sensor_channel_t *ch, const char *value)
+{
+  if (!ch || ch->type != SENSOR_TYPE_STRING || !value) {
+    return -1;
+  }
+  strncpy(ch->value.s, value, SENSOR_STRING_MAX_LEN - 1);
+  ch->value.s[SENSOR_STRING_MAX_LEN - 1] = '\0';
+  ch->has_value = true;
+  return 0;
+}
